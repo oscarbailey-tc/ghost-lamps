@@ -7,8 +7,6 @@
 #include "led_ctrl.h"
 #include "serial_cmds.h"
 
-#define MAX_SERIAL_CMD_LENGTH 10
-
 BluetoothSerial SerialBT;
 
 httpd_handle_t camera_httpd = NULL;
