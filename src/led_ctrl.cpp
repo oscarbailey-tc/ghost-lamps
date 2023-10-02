@@ -54,6 +54,7 @@ void write_led(rgb_t color) {
     return;
   }
 
+  ledcWrite(LEDC_CHANNEL_W, 0);
   ledcWrite(LEDC_CHANNEL_R, color.r);
   ledcWrite(LEDC_CHANNEL_G, color.g);
   ledcWrite(LEDC_CHANNEL_B, color.b);
