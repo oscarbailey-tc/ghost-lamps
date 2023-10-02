@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "led_ctrl.h"
+#include "http_ctrl.h"
 
 #define LEDC_BASE_FREQ 12000
 #define LED_PIN_R 2
@@ -18,6 +19,8 @@ typedef enum {
   FADE
 } led_state_t;
 led_state_t led_state = ON;
+
+extern rgb_t led_color;
 
 rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness);
 
@@ -64,29 +67,12 @@ void led_loop() {
     return;
   }
 
-  switch (led_state) {
-    case ON:
-      write_led(rgb_t {200, 200, 200});
-      led_state = OFF;
-      next = millis() + 2000;
-      break;
-    case OFF:
-      write_led(rgb_t {0, 0, 0});
-      led_state = FADE;
-      next = millis() + 2000;
-      break;
-    case FADE:
-      if (hue == 255) {
-        led_state = ON;
-        hue = 0;
-        break;
-      }
-      rgb_t new_color = hue_to_rgb(hue, 255);
-      write_led(new_color);
-      next = millis() + 100;
-      hue += 1;
-      break;
+  // Read latest color from supabase
+  bool success = read_color_supabase();
+  if (success) {
+    write_led(led_color);
   }
+  next = millis() + 2000;
 }
 
 rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness)

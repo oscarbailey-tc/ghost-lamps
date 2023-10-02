@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include "http_ctrl.h"
 #include "led_ctrl.h"
@@ -25,13 +26,23 @@ rgb_t led_color {
 bool read_color_supabase() {
   http_resp_t resp = http_get_supabase();
 
+  if (resp.code != 200) {
+    Serial.print("HTTP Request failed. Code: ");
+    Serial.print(resp.code);
+    Serial.print(" Data: ");
+    Serial.println(resp.data);
+    return false;
+  }
+
   const int capacity = JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(3);
-  StaticJsonDocument<capacity> doc;
+  StaticJsonDocument<capacity + 100> doc;
   DeserializationError err = deserializeJson(doc, resp.data);
 
   if (err != DeserializationError::Ok) {
-    Serial.println("Failed to deserialize JSON: ");
+    Serial.print("Failed to deserialize JSON: ");
     Serial.println(err.c_str());
+    Serial.println("Data: ");
+    Serial.println(resp.data);
     return false;
   }
 
@@ -63,26 +74,30 @@ bool read_color_supabase() {
   Serial.print(led_color.g);
   Serial.print(", ");
   Serial.println(led_color.b);
+
+  return true;
 }
 
 // Uses supabase postgrest API to get latest color
 http_resp_t http_get_supabase() {
-  WiFiClient client;
-  HTTPClient http;
+  WiFiClientSecure client;
+  HTTPClient https;
+
+  client.setInsecure();
     
-  http.begin(client, SUPABASE_URI);
-  http.addHeader("Authorization", "Bearer " SUPABASE_API_KEY);
-  http.addHeader("apikey", SUPABASE_API_KEY);
+  https.begin(client, SUPABASE_URI);
+  https.addHeader("Authorization", "Bearer " SUPABASE_API_KEY);
+  https.addHeader("apikey", SUPABASE_API_KEY);
   
   // Send HTTP GET request
-  int resp_code = http.GET();
+  int resp_code = https.GET();
   String resp_data; 
   
   if (resp_code>0) {
-    resp_data = http.getString();
+    resp_data = https.getString();
   }
   // Free resources
-  http.end();
+  https.end();
 
   return http_resp_t {
     data: resp_data,
@@ -91,33 +106,35 @@ http_resp_t http_get_supabase() {
 }
 
 bool http_update_supabase() {
-  char* hex_str = "#000000";
+  char hex_str[8] = "#000000";
   itoa(
     led_color.r << 16 + led_color.g << 8 + led_color.b,
     &hex_str[1], 
     16
   );
 
-  WiFiClient client;
-  HTTPClient http;
+  WiFiClientSecure client;
+  HTTPClient https;
+
+  client.setInsecure();
     
-  http.begin(client, SUPABASE_URI);
-  http.addHeader("Authorization", "Bearer " SUPABASE_API_KEY);
-  http.addHeader("apikey", SUPABASE_API_KEY);
+  https.begin(client, SUPABASE_URI);
+  https.addHeader("Authorization", "Bearer " SUPABASE_API_KEY);
+  https.addHeader("apikey", SUPABASE_API_KEY);
 
   String payload = "{ \"color\": \"" + String(hex_str) + "\"}";
 
   // Send HTTP GET request
-  int resp_code = http.PATCH(payload);
+  int resp_code = https.PATCH(payload);
   
   bool err = resp_code != 200;
   if (err) {
     Serial.println("Failed to update led color on Supabase: ");
-    Serial.println(http.getString());
+    Serial.println(https.getString());
   }
 
   // Free resources
-  http.end();
+  https.end();
 
   return err;
 
