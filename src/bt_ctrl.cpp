@@ -6,7 +6,7 @@ extern BluetoothSerial SerialBT;
 bool bluetooth_disconnect;
 
 void bt_setup() {
-  SerialBT.begin(BLUETOOTH_NAME);
+  //SerialBT.begin(BLUETOOTH_NAME);
 }
 
 void bt_disconnect() {

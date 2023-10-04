@@ -10,12 +10,15 @@
 
 #define SUPABASE_URI "https://" SUPABASE_PROJECT_REF ".supabase.co/rest/v1/lamp_groups?id=eq." LAMP_GROUP
 
+// #define DEBUG
+
 typedef struct {
   String data;
   int code;
 } http_resp_t;
 
 http_resp_t http_get_supabase();
+bool read_color_supabase();
 
 rgb_t led_color {
   r: 255,
@@ -23,11 +26,51 @@ rgb_t led_color {
   b: 255
 };
 
+bool push_color = false;
+
+HTTPClient https;
+WiFiClientSecure client;
+
+void upload_color(rgb_t color) {
+  push_color = true;
+  led_color = color;
+}
+
+void http_setup() {
+  https.setReuse(true);
+}
+
+void http_loop() {
+  static long next = millis();
+
+  if (millis() < next) {
+    return;
+  }
+
+  if (led_changing()) {
+    return;
+  }
+
+  // Read latest color from supabase
+  if (push_color) {
+    bool success = http_update_supabase();
+    if (success) {
+      push_color = false;
+    }
+  } else {
+    read_color_supabase();
+  }
+  next = millis() + 2000;
+}
+
 bool read_color_supabase() {
   http_resp_t resp = http_get_supabase();
+#ifdef DEBUG
+  Serial.printf("Free Heap: %d\n", ESP.getFreeHeap());
+#endif
 
   if (resp.code != 200) {
-    Serial.print("HTTP Request failed. Code: ");
+    Serial.print("HTTP GET request failed. Code: ");
     Serial.print(resp.code);
     Serial.print(" Data: ");
     Serial.println(resp.data);
@@ -68,27 +111,27 @@ bool read_color_supabase() {
   led_color.g = hex_int >> 8;
   led_color.b = hex_int;
 
-  Serial.print("Set RGB to: ");
-  Serial.print(led_color.r);
-  Serial.print(", ");
-  Serial.print(led_color.g);
-  Serial.print(", ");
-  Serial.println(led_color.b);
-
   return true;
 }
 
 // Uses supabase postgrest API to get latest color
 http_resp_t http_get_supabase() {
-  WiFiClientSecure client;
-  HTTPClient https;
-
   client.setInsecure();
-    
-  https.begin(client, SUPABASE_URI);
+
+  bool success = false;
+  int retry_count = 1;
+  while (!success) {
+    success = https.begin(client, SUPABASE_URI);
+    if (!success) {
+      Serial.print("HTTPS Failed to start, retry ");
+      Serial.println(retry_count++);
+    }
+    delay(100);
+  }
+
   https.addHeader("Authorization", "Bearer " SUPABASE_API_KEY);
   https.addHeader("apikey", SUPABASE_API_KEY);
-  
+
   // Send HTTP GET request
   int resp_code = https.GET();
   String resp_data; 
@@ -96,7 +139,7 @@ http_resp_t http_get_supabase() {
   if (resp_code>0) {
     resp_data = https.getString();
   }
-  // Free resources
+
   https.end();
 
   return http_resp_t {
@@ -106,36 +149,48 @@ http_resp_t http_get_supabase() {
 }
 
 bool http_update_supabase() {
-  char hex_str[8] = "#000000";
-  itoa(
-    led_color.r << 16 + led_color.g << 8 + led_color.b,
-    &hex_str[1], 
-    16
-  );
-
-  WiFiClientSecure client;
-  HTTPClient https;
+  unsigned int led_val = led_color.r;
+  led_val <<= 8;
+  led_val += led_color.g;
+  led_val <<= 8;
+  led_val += led_color.b;
+  String hex_str = String(led_val, HEX);
+  String pad = "000000";
+  hex_str = "#" + pad.substring(0, 6 - hex_str.length()) + hex_str;
 
   client.setInsecure();
-    
-  https.begin(client, SUPABASE_URI);
+
+  bool success = false;
+  int retry_count = 1;
+  while (!success) {
+    success = https.begin(client, SUPABASE_URI);
+    if (!success) {
+      Serial.print("HTTPS Failed to start, retry ");
+      Serial.println(retry_count++);
+    }
+    delay(100);
+  }
+
+  String payload = "{ \"color\": \"" + hex_str + "\"}";
+
   https.addHeader("Authorization", "Bearer " SUPABASE_API_KEY);
   https.addHeader("apikey", SUPABASE_API_KEY);
-
-  String payload = "{ \"color\": \"" + String(hex_str) + "\"}";
 
   // Send HTTP GET request
   int resp_code = https.PATCH(payload);
   
-  bool err = resp_code != 200;
+  bool err = !(resp_code >= 200 && resp_code < 300);
   if (err) {
     Serial.println("Failed to update led color on Supabase: ");
+    Serial.println(resp_code);
     Serial.println(https.getString());
+  } else {
+    Serial.print("Updated to new color: ");
+    Serial.println(hex_str);
   }
 
-  // Free resources
   https.end();
 
-  return err;
 
+  return !err;
 }

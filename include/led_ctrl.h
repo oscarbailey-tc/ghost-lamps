@@ -1,10 +1,12 @@
-#include <Arduino.h>
+#ifndef LED_CTRL_H
+#define LED_CTRL_H
 
-typedef struct {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-} rgb_t;
+#include <Arduino.h>
+#include "color.h"
 
 void led_setup();
 void led_loop();
+bool led_changing();
+rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness);
+
+#endif // LED_CTRL_H

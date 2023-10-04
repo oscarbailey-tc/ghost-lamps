@@ -93,6 +93,7 @@ bool init_wifi()
 
   long start_wifi_millis = millis();
   WiFi.begin(pref_ssid, pref_pass);
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
