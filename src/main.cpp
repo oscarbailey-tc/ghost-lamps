@@ -6,19 +6,40 @@
 #include "bt_ctrl.h"
 #include "led_ctrl.h"
 #include "http_ctrl.h"
-#include "serial_cmds.h"
+#include <Preferences.h>
 
 // Resources used:
 // https://robotzero.one/esp32-wi-fi-connection-bluetooth/
 // https://docs.espressif.com/projects/arduino-esp32/en/latest/
 
 BluetoothSerial SerialBT;
+Preferences preferences;
 
 httpd_handle_t camera_httpd = NULL;
 
 #define TOUCH_PIN T4
 
 int threshold = 60;
+
+bool config_mode_triggered = false;
+bool config_mode_done = false;
+bool config_mode = false;
+
+void start_config_mode() {
+  wifi_disconnect();
+  bt_init();
+  led_reset();
+  config_mode = true;
+  Serial.println("Config mode enabled.");
+}
+
+void stop_config_mode() {
+  bt_disconnect();
+  wifi_setup();
+  led_read_brightness();
+  config_mode = false;
+  Serial.println("Config mode disabled.");
+}
 
 void touch_trigger(){
   static bool must_be_lower = true;
@@ -28,54 +49,17 @@ void touch_trigger(){
     touch_start = millis();
   } else {
     int touch_duration = millis() - touch_start;
-    Serial.print("Touch duration: ");
-    Serial.println(touch_duration);
 
-    if (touch_duration < 1000 && !led_changing()) {
+    if (touch_duration > 5000) {
+      // Enter config mode
+      config_mode_triggered = true;
+    }
 
-      // Choose either:
-      // - White LED of different brightness
-      // - Coloured LED (just 1)
-      // - Hue
-      // - Random LEDs (all)
-
-      switch (random(4)) {
-        case 0: {
-          uint8_t brightness = 50 + random(200);
-          rgb_t color = rgb_t {
-            brightness, brightness, brightness
-          };
-          upload_color(color);
-          break;
-        }
-        case 1: {
-          uint8_t brightness = 50 + random(200);
-          switch (random(3)) {
-            case 0:
-              upload_color(rgb_t {brightness, 0, 0});
-              break;
-            case 1:
-              upload_color(rgb_t {0, brightness, 0});
-              break;
-            default:
-              upload_color(rgb_t {0, 0, brightness});
-              break;
-          }
-          break;
-        }
-        case 2: {
-          rgb_t color = hue_to_rgb(random(255), 255);
-          upload_color(color);
-          break;
-        }
-        default: {
-          uint8_t r = random(245) + 10;
-          uint8_t g = random(245) + 10;
-          uint8_t b = random(245) + 10;
-          rgb_t color = rgb_t { r, g, b};
-          upload_color(color);
-          break;
-        }
+    if (touch_duration < 1000) {
+      if (config_mode) {
+        config_mode_done = true;
+      } else if (!led_changing()) {
+        set_and_upload_random_led_color();
       }
     }
   }
@@ -87,19 +71,42 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println("Booting...");
+  preferences.begin("all", false);
 
   wifi_setup();
   led_setup();
-  bt_setup();
 
   touchAttachInterrupt(TOUCH_PIN, touch_trigger, threshold);
 }
 
 void loop()
 {
-  handle_serial_cmd();
-  bt_loop();
-  led_loop();
-  http_loop();
-  wifi_loop();
+  static int led_next = millis();
+  static int led_on = false;
+
+  if (config_mode_triggered) {
+    start_config_mode();
+    config_mode_triggered = false;
+  }
+
+  if (config_mode_done) {
+    stop_config_mode();
+    config_mode_done = false;
+  }
+
+  if (config_mode) {
+    // Flash LED
+    if (led_next < millis()) {
+      led_on = !led_on; 
+      uint8_t brightness = 255 * led_on;
+      write_led(BLUE(brightness), BLUE(brightness));
+      led_next += 1000;
+    }
+
+    bt_loop();
+  } else {
+    bt_loop();
+    led_loop();
+    http_loop();
+  }
 }

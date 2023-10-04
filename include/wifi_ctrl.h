@@ -4,7 +4,7 @@
 #include "BluetoothSerial.h"
 
 void wifi_setup();
-void wifi_loop();
-void wifi_forget();
+void wifi_disconnect();
+bool wifi_test_connection();
 
 #endif // WIFI_CTRL_H

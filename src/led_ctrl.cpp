@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "led_ctrl.h"
 #include "http_ctrl.h"
+#include <Preferences.h>
 
 #define LEDC_BASE_FREQ 12000
 #define LED_PIN_R 2
@@ -19,10 +20,27 @@ int fade_direction = -1;
 rgb_t old_led_color = led_color;
 rgb_t cur_led_color;
 
+extern Preferences preferences;
+int led_brightness = 10;
+
+#define B(x) ((uint8_t) ((int) x * 10) / 10)
+
 rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness);
 
 bool led_changing() {
   return memcmp(&led_color, &cur_led_color, sizeof led_color);
+}
+
+void led_reset() {
+  led_color = WHITE(255);
+  cur_led_color = WHITE(0);
+  old_led_color = led_color;
+  fade_direction = 1;
+}
+
+void led_read_brightness() {
+  String brightness = preferences.getString("led_brightness", "10");
+  led_brightness = brightness.toInt();
 }
 
 void led_setup() {
@@ -36,6 +54,8 @@ void led_setup() {
   ledcAttachPin(LED_PIN_R, LEDC_CHANNEL_R);
   ledcAttachPin(LED_PIN_G, LEDC_CHANNEL_G);
   ledcAttachPin(LED_PIN_B, LEDC_CHANNEL_B);
+
+  led_read_brightness();
 }
 
 void write_led(rgb_t color, rgb_t target) {
@@ -50,7 +70,7 @@ void write_led(rgb_t color, rgb_t target) {
 
   // If target color is brightness only
   if (target.r == target.g && target.g == target.b) {
-    ledcWrite(LEDC_CHANNEL_W, color.r / 2);
+    ledcWrite(LEDC_CHANNEL_W, B(color.r));
     ledcWrite(LEDC_CHANNEL_R, 0);
     ledcWrite(LEDC_CHANNEL_G, 0);
     ledcWrite(LEDC_CHANNEL_B, 0);
@@ -58,9 +78,9 @@ void write_led(rgb_t color, rgb_t target) {
   }
 
   ledcWrite(LEDC_CHANNEL_W, 0);
-  ledcWrite(LEDC_CHANNEL_R, color.r / 2);
-  ledcWrite(LEDC_CHANNEL_G, color.g / 2);
-  ledcWrite(LEDC_CHANNEL_B, color.b / 2);
+  ledcWrite(LEDC_CHANNEL_R, B(color.r));
+  ledcWrite(LEDC_CHANNEL_G, B(color.g));
+  ledcWrite(LEDC_CHANNEL_B, B(color.b));
 }
 
 void led_loop() {

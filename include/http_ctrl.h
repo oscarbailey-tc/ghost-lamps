@@ -5,6 +5,6 @@
 
 void http_loop();
 bool http_update_supabase();
-void upload_color(rgb_t color);
+void set_and_upload_random_led_color();
 
 #endif // HTTP_CTRL_H

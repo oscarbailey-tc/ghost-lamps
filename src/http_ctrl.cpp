@@ -36,6 +36,51 @@ void upload_color(rgb_t color) {
   led_color = color;
 }
 
+void set_and_upload_random_led_color()
+{
+  // Choose either:
+  // - White LED of different brightness
+  // - Coloured LED (just 1)
+  // - Hue
+  // - Random LEDs (all)
+
+  switch (random(4)) {
+    case 0: {
+      uint8_t brightness = 50 + random(200);
+      upload_color(WHITE(brightness));
+      break;
+    }
+    case 1: {
+      uint8_t brightness = 50 + random(200);
+      switch (random(3)) {
+      case 0:
+        upload_color(RED(brightness));
+        break;
+      case 1:
+        upload_color(GREEN(brightness));
+        break;
+      default:
+        upload_color(BLUE(brightness));
+        break;
+      }
+      break;
+    }
+    case 2: {
+      rgb_t color = hue_to_rgb(random(255), 255);
+      upload_color(color);
+      break;
+    }
+    default: {
+      uint8_t r = random(245) + 10;
+      uint8_t g = random(245) + 10;
+      uint8_t b = random(245) + 10;
+      rgb_t color = rgb_t{r, g, b};
+      upload_color(color);
+      break;
+    }
+  }
+}
+
 void http_setup() {
   https.setReuse(true);
 }
