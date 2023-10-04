@@ -23,7 +23,7 @@ rgb_t cur_led_color;
 extern Preferences preferences;
 int led_brightness = 10;
 
-#define B(x) ((uint8_t) ((int) x * 10) / 10)
+#define B(x) ((uint8_t)( (((int) x) * led_brightness) / 10) )
 
 rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness);
 

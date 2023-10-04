@@ -37,6 +37,7 @@ void stop_config_mode() {
   bt_disconnect();
   wifi_setup();
   led_read_brightness();
+  http_read_lamp_group();
   config_mode = false;
   Serial.println("Config mode disabled.");
 }

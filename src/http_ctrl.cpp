@@ -5,12 +5,16 @@
 #include "http_ctrl.h"
 #include "led_ctrl.h"
 #include <ArduinoJson.h>
+#include <Preferences.h>
 
 #include "appcfg.h"
 
-#define SUPABASE_URI "https://" SUPABASE_PROJECT_REF ".supabase.co/rest/v1/lamp_groups?id=eq." LAMP_GROUP
+#define SUPABASE_URI "https://" SUPABASE_PROJECT_REF ".supabase.co/rest/v1/lamp_groups?id=eq."
 
 // #define DEBUG
+
+extern Preferences preferences;
+String lamp_group = LAMP_GROUP;
 
 typedef struct {
   String data;
@@ -34,6 +38,10 @@ WiFiClientSecure client;
 void upload_color(rgb_t color) {
   push_color = true;
   led_color = color;
+}
+
+void http_read_lamp_group() {
+  lamp_group = preferences.getString("lamp_group", LAMP_GROUP);
 }
 
 void set_and_upload_random_led_color()
@@ -83,6 +91,7 @@ void set_and_upload_random_led_color()
 
 void http_setup() {
   https.setReuse(true);
+  http_read_lamp_group();
 }
 
 void http_loop() {
@@ -166,7 +175,7 @@ http_resp_t http_get_supabase() {
   bool success = false;
   int retry_count = 1;
   while (!success) {
-    success = https.begin(client, SUPABASE_URI);
+    success = https.begin(client, String(SUPABASE_URI) + lamp_group);
     if (!success) {
       Serial.print("HTTPS Failed to start, retry ");
       Serial.println(retry_count++);
@@ -208,7 +217,7 @@ bool http_update_supabase() {
   bool success = false;
   int retry_count = 1;
   while (!success) {
-    success = https.begin(client, SUPABASE_URI);
+    success = https.begin(client, String(SUPABASE_URI) + lamp_group);
     if (!success) {
       Serial.print("HTTPS Failed to start, retry ");
       Serial.println(retry_count++);
