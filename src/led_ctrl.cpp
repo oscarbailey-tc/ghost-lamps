@@ -135,6 +135,8 @@ void led_loop() {
   write_led(cur_led_color, fade_direction < 0 ? old_led_color : led_color);
 }
 
+// Courtesy http://www.instructables.com/id/How-to-Use-an-RGB-LED/?ALLSTEPS
+// function to convert a color to its Red, Green, and Blue components.
 rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness)
 {
   uint16_t scaledHue = (hue * 6);
@@ -147,13 +149,6 @@ rgb_t hue_to_rgb(uint8_t hue, uint8_t brightness)
   uint16_t prev = (brightness * ( 255 -  segmentOffset)) / 256;
   uint16_t next = (brightness *  segmentOffset) / 256;
 
-  //if(invert)
-  //{
-  //  brightness = 255 - brightness;
-  //  complement = 255;
-  //  prev = 255 - prev;
-  //  next = 255 - next;
-  //}
   rgb_t color;
 
   switch(segment ) {
